@@ -1,16 +1,34 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build output
 bin/
 obj/
-wwwroot/eventList/
-appsettings.Development.json
-*.user
-*.db
+
+# Publish output
+publish/
+out/
+
+# Logs
 *.log
+
+# Secrets
+appsettings.Development.json
+
+# Generated files
+wwwroot/eventList/
+
+# Runtime files
+*.db
+*.cache
+
+# Ignore executables except server scripts
 *.exe
 *.dll
 *.pdb
-*.cache
 *.config
-*.bat
-*.csv
+
+# Allow server scripts
 !ServerScripts/*.bat
-.vs/
