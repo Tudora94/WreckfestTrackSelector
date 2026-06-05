@@ -1,0 +1,90 @@
+name: Publish WreckfestSelector 
+
+on:
+  pull_request:
+    branches: [ Main ]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    env:
+      PROJECT_PATH: WreckfestTrackSelector/WreckfestTrackSelector.csproj
+      LOCAL_PUBLISH_PATH: ${{ github.workspace }}\publish
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore $env:PROJECT_PATH
+
+      - name: Publish project
+        run: dotnet publish $env:PROJECT_PATH -c Release -o ./publish
+
+      - name: Upload published files
+        uses: actions/upload-artifact@v4
+        with:
+          name: DndServer-Published
+          path: publish
+
+      - name: Zip published files
+        run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Compress-Archive -Path "$env:LOCAL_PUBLISH_PATH\*" -DestinationPath "$env:LOCAL_PUBLISH_PATH\package.zip"
+        shell: pwsh
+
+      - name: Copy package.zip to server
+        shell: pwsh
+        env:
+          LOCAL_PUBLISH_PATH: ${{ github.workspace }}\publish
+          SERVER: ${{ secrets.WEBDEPLOY_SERVER }}
+          USERNAME: ${{ secrets.WEBDEPLOY_USERNAME }}
+          PASSWORD: ${{ secrets.WEBDEPLOY_PASSWORD }}
+        run: |
+          $securePass = ConvertTo-SecureString $env:PASSWORD -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential ($env:USERNAME, $securePass)
+
+          $session = New-PSSession -ComputerName $env:SERVER -Credential $cred -UseSSL -Authentication Basic -SessionOption (New-PSSessionOption -SkipCNCheck)
+
+          Copy-Item -Path "$env:LOCAL_PUBLISH_PATH\package.zip" -Destination "C:\Program Files\PrimaryServer\Deploy\Wreckfestpackage.zip" -ToSession $session
+
+          Remove-PSSession $session
+
+      - name: Deploy site on remote server
+        shell: pwsh
+        env:
+          SERVER: ${{ secrets.WEBDEPLOY_SERVER }}
+          USERNAME: ${{ secrets.WEBDEPLOY_USERNAME }}
+          PASSWORD: ${{ secrets.WEBDEPLOY_PASSWORD }}
+          SITE_NAME: ${{ secrets.WEBDEPLOY_SITE_NAME }}
+        run: |
+          $securePass = ConvertTo-SecureString $env:PASSWORD -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential ($env:USERNAME, $securePass)
+
+          $session = New-PSSession -ComputerName $env:SERVER -Credential $cred -UseSSL -Port 5986 -Authentication Basic -SessionOption (New-PSSessionOption -SkipCNCheck)
+          Invoke-Command -Session $session -ScriptBlock {
+
+            $packagePath   = "C:\Program Files\PrimaryServer\Deploy\Wreckfestpackage.zip"
+            $publishPath   = "C:\Program Files\PrimaryServer\WreckFestTrackSelector"
+            $backupPath    = "C:\Program Files\PrimaryServer\Archive\WreckFestTrackSelector\WreckFestTrackSelector_{0:yyyyMMdd_HHmmss}" -f (Get-Date)
+            $appPoolName   = "WreckFestTrackSelector"
+
+
+            Import-Module WebAdministration
+            Stop-WebAppPool -Name $appPoolName
+
+            New-Item -ItemType Directory -Force -Path $backupPath | Out-Null
+            Copy-Item -Path "$publishPath\*" -Destination $backupPath -Recurse -Force
+            Remove-Item -Path "$publishPath\*" -Recurse -Force
+            Expand-Archive -Path $packagePath -DestinationPath $publishPath -Force
+
+            Start-WebAppPool -Name $appPoolName
+          }
+          Remove-PSSession $session
