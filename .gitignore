@@ -1,0 +1,16 @@
+bin/
+obj/
+wwwroot/eventList/
+appsettings.Development.json
+*.user
+*.db
+*.log
+*.exe
+*.dll
+*.pdb
+*.cache
+*.config
+*.bat
+*.csv
+!ServerScripts/*.bat
+.vs/

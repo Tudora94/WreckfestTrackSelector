@@ -1,0 +1,22 @@
+﻿@page
+@model WreckfestTrackSelector.Pages.Admin.GenerateModel
+
+<h1>Generate Event Rotation</h1>
+<p>This will compile all selected tracks into a Wreckfest eventlist format.</p>
+
+<form method="post">
+    <button type="submit" class="btn btn-primary" asp-page-handler="GenerateList">
+        Generate Track List
+    </button>
+
+    <button type="submit" class="btn btn-secondary" asp-page-handler="CreatePlaceholder">
+        Create Placeholder Room
+    </button>
+</form>
+
+@if (Model.GeneratedText != null)
+{
+    <h3>Generated eventlist.txt</h3>
+    <textarea style="width:100%; height:400px;">@Model.GeneratedText</textarea>
+}
+
