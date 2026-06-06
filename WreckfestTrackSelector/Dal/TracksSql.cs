@@ -196,22 +196,63 @@ LEFT JOIN SelectedTracks AS ST
 
         public async Task<bool> CreatePlaceHolderTracks()
         {
-            string sql = @"  DELETE FROM SelectedTracks WHERE bantha_session = -1
-        INSERT INTO SelectedTracks
-        VALUES('26845B65-A03F-4C58-B557-D338C765B869','1','1',GETDATE(),-1),
-        ('BFFD6B74-C679-4540-9B45-F576BF0E5F43','2','2',GETDATE(),-1),
-        ('76FFA9C6-2174-47C8-A824-633AB322744D','3','3',GETDATE(),-1),
-        ('870E553A-C936-4899-AFAC-1826CA547E3E','4','4',GETDATE(),-1),
-        ('19511C83-FE91-4EE9-890C-2DE7A7F1DCEF','5','5',GETDATE(),-1),
-        ('CF2F6D51-7CFB-4098-8A00-B86831F7A879','6','6',GETDATE(),-1)
-            ";
+            int rows = 0;
+            var ids = new List<string>();
 
-            using var conn = new SqlConnection(_connectionString);
-            using var cmd = new SqlCommand(sql, conn);
+            using (var conn = new SqlConnection(_connectionString))
+            using (var cmd = new SqlCommand(@"
+        SELECT id
+        FROM Tracks
+        WHERE server_name IN (
+            'bonebreaker_valley_main_circuit',
+            'loop',
+            'urban06',
+            'rt01_1',
+            'forest12_2',
+            'urban09_1'
+        )", conn))
+            {
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    ids.Add(reader.GetGuid(0).ToString());
+                }
+            }
 
-            await conn.OpenAsync();
-            int rows = await cmd.ExecuteNonQueryAsync();
+            //delete the old placeholders
+            using (var conn = new SqlConnection(_connectionString))
+            using (var cmd = new SqlCommand(@"
+        DELETE FROM SelectedTracks WHERE bantha_session = -1;", conn))
+            {
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+            }
 
+            // Now insert them into SelectedTracks
+            using (var conn = new SqlConnection(_connectionString))
+            using (var cmd = new SqlCommand(@"
+        INSERT INTO SelectedTracks (Track_id, selected_by_ip, selected_by_browser_id, selected_at, bantha_session)
+        VALUES (@id, @ip, @browser, GETDATE(), -1);", conn))
+            {
+                var ip = 0;
+                var browser = 0;
+
+                await conn.OpenAsync();
+                foreach (var id in ids)
+                {
+
+                    cmd.Parameters.Clear();
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.Parameters.AddWithValue("@ip", $"system {ip}");
+                    cmd.Parameters.AddWithValue("@browser", $"system {browser}");
+
+                    rows = await cmd.ExecuteNonQueryAsync();
+
+                    ip++;
+                    browser++;
+                }
+            }
             return rows > 0;
         }
             public async Task<IEnumerable<Track>> GetPlaceHolderTracksAsync()
