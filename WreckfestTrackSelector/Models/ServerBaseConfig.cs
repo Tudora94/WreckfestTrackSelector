@@ -29,7 +29,7 @@ namespace WreckfestTrackSelector.Models
         public int Laps { get; set; } = 5;
         public int TimeLimit { get; set; } = 5;
         public int EliminationInterval { get; set; } = 0;
-        public string VehicleDamage { get; set; } = "normal";
+        public string VehicleDamage { get; set; } = "realistic";
         public string CarClassRestriction { get; set; } = "";
         public string CarRestriction { get; set; } = "";
         public int SpecialVehiclesDisabled { get; set; } = 0;
